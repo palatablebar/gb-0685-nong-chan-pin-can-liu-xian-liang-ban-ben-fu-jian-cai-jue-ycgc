@@ -1,0 +1,18 @@
+name: p1117-residuelimit
+services:
+  app:
+    build: .
+    ports:
+      - "${PORT:-18254}:8000"
+    environment:
+      DB_PATH: /data/records.db
+      TZ: Asia/Shanghai
+    volumes:
+      - records:/data
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request;urllib.request.urlopen('http://localhost:8000/healthz')"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+volumes:
+  records:
