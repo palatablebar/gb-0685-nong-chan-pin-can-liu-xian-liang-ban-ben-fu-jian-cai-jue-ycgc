@@ -1,4 +1,4 @@
-import importlib,os
+import importlib,os,json
 from flask import Flask,jsonify,request,redirect,Response
 from app.config import MODULES
 from app.errors import DomainError
@@ -35,6 +35,14 @@ def create_app():
         state=store.get(run_id)
         if not state.get('reconcile',{}).get('balanced'):raise DomainError('UNBALANCED','对账未平')
         return Response(bundle(state),mimetype='text/csv; charset=utf-8',headers={'Content-Disposition':'attachment; filename=evidence.csv'})
+    @app.get('/api/archive/<run_id>/conclusion.json')
+    def conclusion(run_id):
+        from app.modules.m7_archive.export_out import conclusion as build
+        state=store.get(run_id)
+        if not state.get('reconcile',{}).get('balanced'):raise DomainError('UNBALANCED','对账未平')
+        body=build(state)
+        return Response(json.dumps(body,ensure_ascii=False,sort_keys=True,indent=2),mimetype='application/json; charset=utf-8',
+                        headers={'Content-Disposition':'attachment; filename=conclusion.json','X-Evidence-SHA256':state.get('archive',{}).get('sha256','')})
     with app.app_context():
         if not store.history():
             state=run(load('dirty.csv'),{});store.save(state['run_id'],state)

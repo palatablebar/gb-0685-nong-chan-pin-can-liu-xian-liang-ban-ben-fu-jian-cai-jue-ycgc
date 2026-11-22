@@ -10,7 +10,9 @@
 | M2 项目映射 | 查看并复算项目映射 | `/api/m2_mapping` | `app/modules/m2_mapping/rules.py` | `tests/test_mapping.py` |
 | M3 限量选版 | 查看并复算限量选版 | `/api/m3_versions` | `app/modules/m3_versions/rules.py` | `tests/test_versions.py` |
 | M4 检出量换算 | 查看并复算检出量换算 | `/api/m4_segments` | `app/modules/m4_segments/rules.py` | `tests/test_segments.py` |
+| M4 曲线登记 | 校验信号、稀释与曲线适用性 | `app/modules/m4_segments/curves.py` | `app/modules/m4_segments/curves.py` | `tests/test_basis.py` |
 | M5 复检裁决 | 查看并复算复检裁决 | `/api/m5_calculate` | `app/modules/m5_calculate/rules.py` | `tests/test_calculate.py` |
+| M5 定量依据 | 跨曲线/稀释同一依据裁决 | `app/modules/m5_calculate/basis.py` | `app/modules/m5_calculate/basis.py` | `tests/test_basis.py` |
 | M6 批次判级 | 查看并复算批次判级 | `/api/m6_reconcile` | `app/modules/m6_reconcile/compare.py` | `tests/test_reconcile.py` |
 | M7 报告归档 | 查看并复算报告归档 | `/api/m7_archive` | `app/modules/m7_archive/export_out.py` | `tests/test_archive.py` |
 
@@ -32,6 +34,10 @@
 | TRAP-15 | ug/kg与mg/kg | 差1000倍 | 浓度统一mg/kg | `app/modules/m4_segments/rules.py` | `tests/test_segments.py::test_unit_conversion` |
 | TRAP-25 | 标准时间边界 | 双版或错版 | 采样日半开区间选版 | `app/modules/m3_versions/standards.py` | `tests/test_versions.py::test_halfopen_effective` |
 | TRAP-20 | 复检引用环 | 遍历无法结束 | 引用路径检测 | `app/modules/m5_calculate/rules.py` | `tests/test_calculate.py::test_cycle_rejected` |
+| TRAP-27 | 批次中换曲线 | 直接采用较新复检，混用旧量程与新稀释 | 全部原始信号按当前曲线复算，各用本报告稀释 | `app/modules/m5_calculate/basis.py` | `tests/test_basis.py::test_conflicting_basis_is_not_spliced` |
+| TRAP-28 | 依据冲突跨限量 | 强行给出单值结论 | 包络区间+UNCERTAIN/BASIS_CONFLICT | `app/modules/m5_calculate/basis.py` | `tests/test_basis.py::test_sample_verdict_matches_interval_rule` |
+| TRAP-29 | 同源重跑 | 重复样本结果 | 同 run_id 幂等，不新增/不改写 | `app/store.py` | `tests/test_basis.py::test_same_source_rerun_adds_no_sample_result` |
+| TRAP-30 | 证据写入中断 | 半写覆盖旧版 | 先序列化校验，事务回滚 | `app/store.py` | `tests/test_basis.py::test_interrupted_write_keeps_previous_version` |
 
 ## 对账规则
 

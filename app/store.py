@@ -1,4 +1,4 @@
-import sqlite3,json,os
+import sqlite3,json,os,hashlib
 from pathlib import Path
 from app.errors import DomainError
 
@@ -6,13 +6,37 @@ def connection():
     path=Path(os.environ.get('DB_PATH','data/records.db'));path.parent.mkdir(parents=True,exist_ok=True)
     db=sqlite3.connect(path,timeout=10);db.row_factory=sqlite3.Row
     db.execute('PRAGMA journal_mode=WAL')
-    db.execute('CREATE TABLE IF NOT EXISTS runs (id TEXT PRIMARY KEY, body TEXT NOT NULL, version INTEGER NOT NULL DEFAULT 1, decision TEXT NOT NULL DEFAULT "待复核")')
+    db.execute('CREATE TABLE IF NOT EXISTS runs (id TEXT PRIMARY KEY, body TEXT NOT NULL, version INTEGER NOT NULL DEFAULT 1, decision TEXT NOT NULL DEFAULT "待复核", digest TEXT)')
     db.execute('CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY,value TEXT NOT NULL)')
+    columns={r['name'] for r in db.execute('PRAGMA table_info(runs)').fetchall()}
+    if 'digest' not in columns:db.execute('ALTER TABLE runs ADD COLUMN digest TEXT')
     return db
 
+def _digest(text):return hashlib.sha256(text.encode('utf-8')).hexdigest()
+
 def save(run_id, body):
+    # Serialize completely before touching the store.  An interrupted or partial
+    # serialization never reaches the database, so the previous version survives.
+    try:
+        text=json.dumps(body,ensure_ascii=False,sort_keys=True)
+    except (TypeError,ValueError):
+        raise DomainError('PERSIST','证据序列化失败，已保留旧版',500)
+    digest=_digest(text)
     with connection() as db:
-        db.execute('INSERT OR IGNORE INTO runs(id,body) VALUES (?,?)',(run_id,json.dumps(body,ensure_ascii=False)))
+        existing=db.execute('SELECT body FROM runs WHERE id=?',(run_id,)).fetchone()
+        if existing is None:
+            try:
+                db.execute('INSERT INTO runs(id,body,digest) VALUES (?,?,?)',(run_id,text,digest))
+                stored=db.execute('SELECT body FROM runs WHERE id=?',(run_id,)).fetchone()
+                if stored is None or _digest(stored['body'])!=digest:
+                    raise DomainError('PERSIST','证据写入校验失败，已回退旧版',500)
+            except Exception:
+                db.rollback()
+                raise
+        # Same input bytes + parameters + rule version + curve registry hash
+        # produce the same run id.  Re-running the same source is a no-op: the
+        # first stored evidence is returned unchanged, so no second sample
+        # result is created and the archived version is never overwritten.
         db.execute("INSERT INTO meta(key,value) VALUES ('latest',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",(run_id,))
     return get(run_id)
 

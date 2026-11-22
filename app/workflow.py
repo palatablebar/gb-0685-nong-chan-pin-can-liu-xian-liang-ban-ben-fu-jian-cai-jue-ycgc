@@ -4,8 +4,10 @@ from app.config import MODULES
 from app.errors import DomainError
 from app.manifest import identity,manifest
 
+SAMPLES=('dirty.csv','clean.csv','legacy.csv','curve_change.csv')
+
 def load(sample):
-    if sample not in ('dirty.csv','clean.csv','legacy.csv'):raise DomainError('SAMPLE','样例名称无效')
+    if sample not in SAMPLES:raise DomainError('SAMPLE','样例名称无效')
     return (Path(__file__).resolve().parents[1]/'sample_data'/sample).read_bytes()
 
 def run(content,parameters=None,stage=7):
